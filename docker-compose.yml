@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ingles-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ingles
+      POSTGRES_PASSWORD: ingles
+      POSTGRES_DB: ingles
+    volumes:
+      - ingles_pg:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  ingles_pg:
