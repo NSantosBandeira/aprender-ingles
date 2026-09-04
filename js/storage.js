@@ -4,6 +4,7 @@ const empty = {
   xp: 0,
   lastUnit: "hello",
   lastMode: "speak",
+  voiceRate: "slow",
   scores: {},
 };
 
@@ -24,6 +25,16 @@ function write(state) {
 
 export function getState() {
   return read();
+}
+
+export function getVoiceRateId() {
+  return read().voiceRate || "slow";
+}
+
+export function saveVoiceRate(id) {
+  const state = read();
+  state.voiceRate = id;
+  return write(state);
 }
 
 export function itemKey(unitId, mode, index) {

@@ -1,7 +1,7 @@
 import { units } from "./content.js";
 import { bestMatch, scoreLabel, diffWords } from "./evaluate.js";
-import { canListen, canSpeak, listenOnce, speakEnglish } from "./speech.js";
-import { getState, saveScore, unitProgress } from "./storage.js";
+import { canListen, canSpeak, listenOnce, speakEnglish, SPEAK_RATES } from "./speech.js";
+import { getState, getVoiceRateId, saveScore, saveVoiceRate, unitProgress } from "./storage.js";
 
 const app = document.querySelector("#app");
 
@@ -65,7 +65,7 @@ async function playPhrase(text) {
     return;
   }
   try {
-    await speakEnglish(text);
+    await speakEnglish(text, { rateId: getVoiceRateId() });
   } catch (error) {
     state.message = error.message;
     render();
@@ -120,6 +120,28 @@ function stars(count) {
   return "●".repeat(count) + "○".repeat(Math.max(0, 3 - count));
 }
 
+function voiceControls(compact = false) {
+  const selected = getVoiceRateId();
+  return `
+    <section class="voice ${compact ? "compact" : ""}">
+      <div>
+        <p class="eyebrow">Voz</p>
+        <strong>${compact ? "Velocidade" : "Velocidade da voz"}</strong>
+        ${compact ? "" : "<span>Escolha o quanto a frase é pausada ao ouvir.</span>"}
+      </div>
+      <div class="rate-pills" role="group" aria-label="Velocidade da voz">
+        ${SPEAK_RATES.map(
+          (item) => `
+            <button type="button" class="${item.id === selected ? "on" : "ghost"}" data-rate="${item.id}" title="${item.hint}">
+              ${item.label}
+            </button>
+          `
+        ).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function homeView() {
   const saved = getState();
   const totals = units.reduce(
@@ -157,6 +179,8 @@ function homeView() {
         <span>Traduza frases do trabalho e veja a correção.</span>
       </button>
     </section>
+
+    ${voiceControls()}
 
     ${
       !canListen()
@@ -218,6 +242,7 @@ function practiceView() {
             ${item.when ? `<p class="when">${item.when}</p>` : ""}
             <p class="phrase">${item.en}</p>
             <p class="meaning">${item.pt}</p>
+            ${voiceControls(true)}
             <div class="actions">
               <button type="button" class="ghost" data-action="listen" ${canSpeak() ? "" : "disabled"}>Ouvir</button>
               <button type="button" class="${state.listening ? "hot recording" : "hot"}" data-action="record" ${
@@ -295,6 +320,18 @@ app.addEventListener("click", (event) => {
   if (start) {
     const [unitId, mode] = start.dataset.start.split(":");
     startUnit(unitId, mode, 0);
+    return;
+  }
+
+  const rateBtn = event.target.closest("[data-rate]");
+  if (rateBtn) {
+    saveVoiceRate(rateBtn.dataset.rate);
+    const preview =
+      state.view === "practice" && state.mode === "speak"
+        ? currentList()[state.index].en
+        : "Good morning.";
+    render();
+    playPhrase(preview);
     return;
   }
 
