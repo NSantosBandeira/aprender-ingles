@@ -19,12 +19,12 @@ function pickEnglishVoice() {
 export const SPEAK_RATES = [
   { id: "very-slow", label: "Bem lenta", hint: "palavra por palavra", rate: 0.5, pitch: 0.92, pauseMs: 380 },
   { id: "slow", label: "Lenta", hint: "pausada", rate: 0.7, pitch: 0.96, pauseMs: 0 },
-  { id: "normal", label: "Normal", hint: "conversa", rate: 1, pitch: 1, pauseMs: 0 },
-  { id: "fast", label: "Rápida", hint: "mais fluente", rate: 1.65, pitch: 1.08, pauseMs: 0 },
+  { id: "normal", label: "Normal", hint: "conversa", rate: 0.88, pitch: 1, pauseMs: 0 },
+  { id: "fast", label: "Rápida", hint: "mais fluente", rate: 1.2, pitch: 1.04, pauseMs: 0 },
 ];
 
 export function rateById(id) {
-  return SPEAK_RATES.find((item) => item.id === id) || SPEAK_RATES[1];
+  return SPEAK_RATES.find((item) => item.id === id) || SPEAK_RATES[0];
 }
 
 function wait(ms) {

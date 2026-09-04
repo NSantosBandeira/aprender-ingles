@@ -4,7 +4,8 @@ const empty = {
   xp: 0,
   lastUnit: "hello",
   lastMode: "speak",
-  voiceRate: "slow",
+  voiceRate: "very-slow",
+  voiceRateVersion: 2,
   scores: {},
 };
 
@@ -12,7 +13,14 @@ function read() {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { ...empty, scores: {} };
-    return { ...empty, ...JSON.parse(raw), scores: { ...empty.scores, ...(JSON.parse(raw).scores || {}) } };
+    const parsed = JSON.parse(raw);
+    const state = { ...empty, ...parsed, scores: { ...empty.scores, ...(parsed.scores || {}) } };
+    if (state.voiceRateVersion !== 2) {
+      state.voiceRate = "very-slow";
+      state.voiceRateVersion = 2;
+      write(state);
+    }
+    return state;
   } catch {
     return { ...empty, scores: {} };
   }
@@ -28,7 +36,7 @@ export function getState() {
 }
 
 export function getVoiceRateId() {
-  return read().voiceRate || "slow";
+  return read().voiceRate || "very-slow";
 }
 
 export function saveVoiceRate(id) {
