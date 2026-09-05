@@ -21,6 +21,12 @@ CREATE TABLE IF NOT EXISTS users (
 )
 `;
 
+function postgresUrl(raw: string) {
+  const parsed = new URL(raw);
+  parsed.searchParams.delete("channel_binding");
+  return parsed.toString();
+}
+
 export async function getDataSource() {
   if (dataSource?.isInitialized) return dataSource;
 
@@ -33,11 +39,14 @@ export async function getDataSource() {
 
   const next = new DataSource({
     type: "postgres",
-    url,
+    url: postgresUrl(url),
     entities: [User],
     synchronize: false,
     logging: false,
     ssl: local ? false : { rejectUnauthorized: false },
+    extra: {
+      max: process.env.VERCEL ? 1 : 5,
+    },
   });
 
   try {
