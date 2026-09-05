@@ -1,10 +1,6 @@
-import postgres from "postgres";
-
-const url = process.env.DATABASE_URL;
-
-export const sql = url
-  ? postgres(url, { max: 5 })
-  : (null as unknown as ReturnType<typeof postgres>);
+import "reflect-metadata";
+import { User } from "./entities/User";
+import { getDataSource } from "./data-source";
 
 export type Profile = {
   id: string;
@@ -19,79 +15,81 @@ export type Profile = {
   lastMode: string | null;
 };
 
-function mapUser(row: Record<string, unknown>): Profile {
-  const scoresRaw = row.scores;
-  const scores =
-    typeof scoresRaw === "string" ? JSON.parse(scoresRaw) : (scoresRaw as Record<string, number>) || {};
+function toProfile(user: User): Profile {
   return {
-    id: String(row.id),
-    email: String(row.email),
-    name: (row.name as string | null) || null,
-    image: (row.image as string | null) || null,
-    roles: (row.roles as string[]) || [],
-    voiceRate: String(row.voice_rate || "very-slow"),
-    xp: Number(row.xp || 0),
-    scores,
-    lastUnit: (row.last_unit as string | null) || null,
-    lastMode: (row.last_mode as string | null) || null,
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    image: user.image,
+    roles: user.roles || [],
+    voiceRate: user.voiceRate,
+    xp: user.xp,
+    scores: user.scores || {},
+    lastUnit: user.lastUnit,
+    lastMode: user.lastMode,
   };
 }
 
+async function users() {
+  const ds = await getDataSource();
+  return ds.getRepository(User);
+}
+
 export async function upsertUser(input: { id: string; email: string; name?: string | null; image?: string | null }) {
-  const rows = await sql`
-    INSERT INTO users (id, email, name, image)
-    VALUES (${input.id}, ${input.email}, ${input.name || null}, ${input.image || null})
-    ON CONFLICT (email) DO UPDATE SET
-      name = EXCLUDED.name,
-      image = EXCLUDED.image,
-      updated_at = NOW()
-    RETURNING *
-  `;
-  return mapUser(rows[0] as Record<string, unknown>);
+  const repo = await users();
+  let user = await repo.findOne({ where: { email: input.email } });
+  if (!user) {
+    user = repo.create({
+      id: input.id,
+      email: input.email,
+      name: input.name || null,
+      image: input.image || null,
+      roles: [],
+      voiceRate: "very-slow",
+      xp: 0,
+      scores: {},
+    });
+  } else {
+    user.name = input.name || user.name;
+    user.image = input.image || user.image;
+  }
+  return toProfile(await repo.save(user));
 }
 
 export async function getUserByEmail(email: string) {
-  const rows = await sql`SELECT * FROM users WHERE email = ${email} LIMIT 1`;
-  return rows[0] ? mapUser(rows[0] as Record<string, unknown>) : null;
+  const repo = await users();
+  const user = await repo.findOne({ where: { email } });
+  return user ? toProfile(user) : null;
 }
 
 export async function updateRoles(email: string, roles: string[]) {
-  const rows = await sql`
-    UPDATE users SET roles = ${roles}, updated_at = NOW()
-    WHERE email = ${email}
-    RETURNING *
-  `;
-  return rows[0] ? mapUser(rows[0] as Record<string, unknown>) : null;
+  const repo = await users();
+  const user = await repo.findOne({ where: { email } });
+  if (!user) return null;
+  user.roles = roles;
+  return toProfile(await repo.save(user));
 }
 
 export async function updateVoiceRate(email: string, voiceRate: string) {
-  const rows = await sql`
-    UPDATE users SET voice_rate = ${voiceRate}, updated_at = NOW()
-    WHERE email = ${email}
-    RETURNING *
-  `;
-  return rows[0] ? mapUser(rows[0] as Record<string, unknown>) : null;
+  const repo = await users();
+  const user = await repo.findOne({ where: { email } });
+  if (!user) return null;
+  user.voiceRate = voiceRate;
+  return toProfile(await repo.save(user));
 }
 
 export async function saveScore(email: string, key: string, stars: number, lastUnit: string, lastMode: string) {
-  const current = await getUserByEmail(email);
-  if (!current) return null;
-  const prev = current.scores[key] || 0;
-  const scores = { ...current.scores };
-  let xp = current.xp;
+  const repo = await users();
+  const user = await repo.findOne({ where: { email } });
+  if (!user) return null;
+  const scores = { ...(user.scores || {}) };
+  const prev = scores[key] || 0;
   if (stars > prev) {
-    xp += (stars - prev) * 10;
+    user.xp += (stars - prev) * 10;
     scores[key] = stars;
+    user.scores = scores;
   }
-  const rows = await sql`
-    UPDATE users SET
-      scores = ${sql.json(scores as Record<string, number>)},
-      xp = ${xp},
-      last_unit = ${lastUnit},
-      last_mode = ${lastMode},
-      updated_at = NOW()
-    WHERE email = ${email}
-    RETURNING *
-  `;
-  return rows[0] ? mapUser(rows[0] as Record<string, unknown>) : current;
+  user.lastUnit = lastUnit;
+  user.lastMode = lastMode;
+  return toProfile(await repo.save(user));
 }

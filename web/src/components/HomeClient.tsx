@@ -2,6 +2,7 @@
 
 import { logout } from "@/app/logout";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceControls } from "./VoiceControls";
 import { canListen, speakEnglish } from "@/lib/speech";
@@ -19,6 +20,7 @@ export function HomeClient({
   fundamentals: Unit[];
 }) {
   const router = useRouter();
+  const [showListenBanner, setShowListenBanner] = useState(false);
   const scores = profile.scores || {};
   const totals = [...work, ...fundamentals].reduce(
     (acc, unit) => {
@@ -33,6 +35,10 @@ export function HomeClient({
   const roleLabels = ROLES.filter((role) => profile.roles.includes(role.id))
     .map((role) => role.title)
     .join(" · ");
+
+  useEffect(() => {
+    setShowListenBanner(!canListen());
+  }, []);
 
   async function changeVoice(id: string) {
     await fetch("/api/profile", {
@@ -80,7 +86,7 @@ export function HomeClient({
 
       <VoiceControls selected={profile.voiceRate} onChange={changeVoice} />
 
-      {!canListen() ? (
+      {showListenBanner ? (
         <p className="banner">Para a fala, use Chrome ou Edge e permita o microfone.</p>
       ) : null}
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { bestMatch, diffWords, scoreLabel } from "@/lib/evaluate";
 import { canSpeak, listenOnce, speakEnglish } from "@/lib/speech";
 import type { Unit } from "@/lib/content";
@@ -33,7 +33,12 @@ export function PracticeClient({
   const [draft, setDraft] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [rate, setRate] = useState(voiceRate);
+  const [speechOk, setSpeechOk] = useState(false);
   const item = list[index];
+
+  useEffect(() => {
+    setSpeechOk(canSpeak());
+  }, []);
 
   const stars = useMemo(
     () => (count: number) => "●".repeat(count) + "○".repeat(Math.max(0, 3 - count)),
@@ -144,7 +149,7 @@ export function PracticeClient({
             <p className="meaning">{item.pt}</p>
             <VoiceControls compact selected={rate} onChange={changeVoice} />
             <div className="actions">
-              <button className="ghost" type="button" disabled={!canSpeak()} onClick={() => play(item.en)}>
+              <button className="ghost" type="button" disabled={!speechOk} onClick={() => play(item.en)}>
                 Ouvir
               </button>
               <button className={listening ? "hot recording" : "hot"} type="button" disabled={listening} onClick={record}>
