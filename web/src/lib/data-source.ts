@@ -2,25 +2,9 @@ import "reflect-metadata";
 import pg from "pg";
 import { DataSource } from "typeorm";
 import { User } from "./entities/User";
+import { migrations } from "./migrations";
 
 let dataSource: DataSource | null = null;
-
-const USERS_TABLE = `
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  name TEXT,
-  image TEXT,
-  roles TEXT[] NOT NULL DEFAULT '{}',
-  voice_rate TEXT NOT NULL DEFAULT 'very-slow',
-  xp INTEGER NOT NULL DEFAULT 0,
-  scores JSONB NOT NULL DEFAULT '{}',
-  last_unit TEXT,
-  last_mode TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)
-`;
 
 function postgresUrl(raw: string) {
   const parsed = new URL(raw);
@@ -47,6 +31,9 @@ export async function getDataSource() {
     driver: pg,
     url: postgresUrl(url),
     entities: [User],
+    migrations,
+    migrationsRun: true,
+    migrationsTableName: "typeorm_migrations",
     synchronize: false,
     logging: false,
     ssl: local ? false : { rejectUnauthorized: false },
@@ -57,7 +44,6 @@ export async function getDataSource() {
 
   try {
     await next.initialize();
-    await next.query(USERS_TABLE);
     dataSource = next;
     return dataSource;
   } catch (error) {
