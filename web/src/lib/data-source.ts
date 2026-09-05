@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import pg from "pg";
 import { DataSource } from "typeorm";
 import { User } from "./entities/User";
 
@@ -43,6 +44,7 @@ export async function getDataSource() {
 
   const next = new DataSource({
     type: "postgres",
+    driver: pg,
     url: postgresUrl(url),
     entities: [User],
     synchronize: false,
