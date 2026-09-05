@@ -15,10 +15,12 @@ export const authConfig = {
         Google({
           clientId: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          authorization: { params: { scope: "openid email profile" } },
         }),
       ]
     : [],
   pages: {
     signIn: "/login",
+    error: "/login",
   },
 } satisfies NextAuthConfig;

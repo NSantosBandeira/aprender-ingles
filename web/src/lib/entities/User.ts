@@ -20,7 +20,7 @@ export class User {
   @Column({ type: "text", nullable: true })
   image!: string | null;
 
-  @Column({ type: "text", array: true, default: {} })
+  @Column({ type: "text", array: true, default: [] })
   roles!: string[];
 
   @Column({ name: "voice_rate", type: "text", default: "very-slow" })
