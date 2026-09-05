@@ -1,5 +1,14 @@
-// @ts-nocheck
-export const units = [
+import type { SpeakItem, WriteItem } from "./work-units";
+
+type FundamentalUnit = {
+  id: string;
+  title: string;
+  blurb: string;
+  speak: SpeakItem[];
+  write: WriteItem[];
+};
+
+export const units: FundamentalUnit[] = [
   {
     id: "hello",
     title: "Cumprimentos",

@@ -1,19 +1,9 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
+import { authConfig } from "./auth.config";
 import { upsertUser } from "./lib/db";
 
-const googleReady = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
-  providers: googleReady
-    ? [
-        Google({
-          clientId: process.env.GOOGLE_CLIENT_ID,
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        }),
-      ]
-    : [],
+  ...authConfig,
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
@@ -25,8 +15,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       });
       return true;
     },
-  },
-  pages: {
-    signIn: "/login",
   },
 });
