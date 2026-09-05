@@ -1,46 +1,35 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  PrimaryColumn,
-  UpdateDateColumn,
-} from "typeorm";
+import { EntitySchema } from "typeorm";
 
-@Entity({ name: "users" })
-export class User {
-  @PrimaryColumn({ type: "text" })
-  id!: string;
+export type UserRow = {
+  id: string;
+  email: string;
+  name: string | null;
+  image: string | null;
+  roles: string[];
+  voiceRate: string;
+  xp: number;
+  scores: Record<string, number>;
+  lastUnit: string | null;
+  lastMode: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
-  @Column({ type: "text", unique: true })
-  email!: string;
-
-  @Column({ type: "text", nullable: true })
-  name!: string | null;
-
-  @Column({ type: "text", nullable: true })
-  image!: string | null;
-
-  @Column({ type: "text", array: true, default: [] })
-  roles!: string[];
-
-  @Column({ name: "voice_rate", type: "text", default: "very-slow" })
-  voiceRate!: string;
-
-  @Column({ type: "int", default: 0 })
-  xp!: number;
-
-  @Column({ type: "jsonb", default: {} })
-  scores!: Record<string, number>;
-
-  @Column({ name: "last_unit", type: "text", nullable: true })
-  lastUnit!: string | null;
-
-  @Column({ name: "last_mode", type: "text", nullable: true })
-  lastMode!: string | null;
-
-  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
-  createdAt!: Date;
-
-  @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
-  updatedAt!: Date;
-}
+export const User = new EntitySchema<UserRow>({
+  name: "User",
+  tableName: "users",
+  columns: {
+    id: { type: "text", primary: true },
+    email: { type: "text", unique: true },
+    name: { type: "text", nullable: true },
+    image: { type: "text", nullable: true },
+    roles: { type: "text", array: true },
+    voiceRate: { name: "voice_rate", type: "text" },
+    xp: { type: "int" },
+    scores: { type: "jsonb" },
+    lastUnit: { name: "last_unit", type: "text", nullable: true },
+    lastMode: { name: "last_mode", type: "text", nullable: true },
+    createdAt: { name: "created_at", type: "timestamptz", createDate: true },
+    updatedAt: { name: "updated_at", type: "timestamptz", updateDate: true },
+  },
+});

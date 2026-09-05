@@ -15,7 +15,7 @@ function requestOrigin(req: { nextUrl: URL; headers: Headers }) {
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth") || pathname.startsWith("/_next")) {
+  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth") || pathname.startsWith("/api/health") || pathname.startsWith("/_next")) {
     return NextResponse.next();
   }
   if (!req.auth) {

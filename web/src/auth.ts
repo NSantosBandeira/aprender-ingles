@@ -4,6 +4,11 @@ import { upsertUser } from "./lib/db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  logger: {
+    error(error) {
+      console.error("Auth.js:", error);
+    },
+  },
   callbacks: {
     async signIn({ user, profile }) {
       const email = user.email || (profile as { email?: string } | undefined)?.email;

@@ -30,7 +30,11 @@ function postgresUrl(raw: string) {
 export async function getDataSource() {
   if (dataSource?.isInitialized) return dataSource;
 
-  const url = process.env.DATABASE_URL;
+  const url =
+    process.env.DATABASE_URL_UNPOOLED ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL;
   if (!url) throw new Error("DATABASE_URL não está definida.");
   const local = /localhost|127\.0\.0\.1/.test(url);
   if (process.env.VERCEL && local) {

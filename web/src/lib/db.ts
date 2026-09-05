@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { User } from "./entities/User";
+import { User, type UserRow } from "./entities/User";
 import { getDataSource } from "./data-source";
 
 export type Profile = {
@@ -15,7 +15,7 @@ export type Profile = {
   lastMode: string | null;
 };
 
-function toProfile(user: User): Profile {
+function toProfile(user: UserRow): Profile {
   return {
     id: user.id,
     email: user.email,
