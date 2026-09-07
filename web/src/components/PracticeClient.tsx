@@ -49,7 +49,7 @@ export function PracticeClient({
   const [completedAt, setCompletedAt] = useState(initialCompletedAt || {});
   const [celebrate, setCelebrate] = useState(false);
   const [modeFinished, setModeFinished] = useState(() => firstIncompleteIndex(unit, mode, initialScores || {}) < 0);
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | 0>(0);
+  const advanceTimer = useRef<number | undefined>(undefined);
   const item = list[index];
   const scene = unitProgress(unit, scores);
   const otherHref = `/practice/${unit.id}/${otherMode}`;
