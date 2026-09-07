@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { getUserByEmail } from "@/lib/db";
 import { unitById } from "@/lib/content";
+import type { RoleId } from "@/lib/roles";
 import { PracticeClient } from "@/components/PracticeClient";
 
 export default async function PracticePage({
@@ -18,7 +19,14 @@ export default async function PracticePage({
   const profile = await getUserByEmail(session.user.email);
   return (
     <main className="app-shell">
-      <PracticeClient unit={unit} mode={mode} voiceRate={profile?.voiceRate || "very-slow"} />
+      <PracticeClient
+        unit={unit}
+        mode={mode}
+        voiceRate={profile?.voiceRate || "very-slow"}
+        scores={profile?.scores || {}}
+        roles={(profile?.roles || []) as RoleId[]}
+        completedAt={profile?.completedAt || {}}
+      />
     </main>
   );
 }

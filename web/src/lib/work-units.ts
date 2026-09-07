@@ -9,6 +9,7 @@ export type Unit = {
   blurb: string;
   track: "work" | "fundamentals";
   scene: string;
+  journey?: number;
   roles: RoleId[];
   speak: SpeakItem[];
   write: WriteItem[];
@@ -17,11 +18,12 @@ export type Unit = {
 export const workUnits: Unit[] = [
   {
     id: "daily-dev",
-    title: "Daily (participar)",
+    title: "Daily 1",
     blurb: "Yesterday, today e blockers.",
     track: "work",
     scene: "daily",
-    roles: ["developer"],
+    journey: 1,
+    roles: ["developer", "product-owner", "manager"],
     speak: [
       { en: "Yesterday I finished the API.", pt: "Ontem eu terminei a API.", when: "O que você fez ontem." },
       { en: "Today I will work on the tests.", pt: "Hoje vou trabalhar nos testes." },
@@ -59,10 +61,11 @@ export const workUnits: Unit[] = [
   },
   {
     id: "daily-facilitate",
-    title: "Daily (facilitar)",
+    title: "Daily 1",
     blurb: "Abrir a daily, round e blockers.",
     track: "work",
     scene: "daily",
+    journey: 1,
     roles: ["tech-lead", "scrum-master"],
     speak: [
       { en: "Let's start the daily.", pt: "Vamos começar a daily." },

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { bestMatch, diffWords, scoreLabel } from "@/lib/evaluate";
 import { canSpeak, listenOnce, speakEnglish } from "@/lib/speech";
-import type { Unit } from "@/lib/content";
+import { dailyHome, firstIncompleteIndex, isUnitComplete, itemDone, itemKey, unitProgress, type Unit } from "@/lib/content";
 import { VoiceControls } from "./VoiceControls";
+import type { RoleId } from "@/lib/roles";
 
 type Result = {
   kind: "speak" | "write";
@@ -20,13 +21,23 @@ export function PracticeClient({
   unit,
   mode,
   voiceRate,
+  scores: initialScores,
+  roles,
+  completedAt: initialCompletedAt,
 }: {
   unit: Unit;
   mode: "speak" | "write";
   voiceRate: string;
+  scores: Record<string, number>;
+  roles: RoleId[];
+  completedAt: Record<string, string>;
 }) {
   const list = mode === "speak" ? unit.speak : unit.write;
-  const [index, setIndex] = useState(0);
+  const otherMode = mode === "speak" ? "write" : "speak";
+  const [index, setIndex] = useState(() => {
+    const next = firstIncompleteIndex(unit, mode, initialScores || {});
+    return next < 0 ? 0 : next;
+  });
   const [listening, setListening] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -34,10 +45,19 @@ export function PracticeClient({
   const [result, setResult] = useState<Result | null>(null);
   const [rate, setRate] = useState(voiceRate);
   const [speechOk, setSpeechOk] = useState(false);
+  const [scores, setScores] = useState(initialScores || {});
+  const [completedAt, setCompletedAt] = useState(initialCompletedAt || {});
+  const [celebrate, setCelebrate] = useState(false);
+  const [modeFinished, setModeFinished] = useState(() => firstIncompleteIndex(unit, mode, initialScores || {}) < 0);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | 0>(0);
   const item = list[index];
+  const scene = unitProgress(unit, scores);
+  const otherHref = `/practice/${unit.id}/${otherMode}`;
+  const dailyState = dailyHome(roles, scores, completedAt);
 
   useEffect(() => {
     setSpeechOk(canSpeak());
+    return () => window.clearTimeout(advanceTimer.current);
   }, []);
 
   const stars = useMemo(
@@ -45,22 +65,59 @@ export function PracticeClient({
     []
   );
 
-  function move(step: number) {
-    const next = index + step;
-    if (next < 0 || next >= list.length) return;
-    setIndex(next);
+  function resetCard(nextIndex: number) {
+    setIndex(nextIndex);
     setResult(null);
     setHintOpen(false);
     setMessage("");
     setDraft("");
   }
 
+  function move(step: number) {
+    const next = index + step;
+    if (next < 0 || next >= list.length) return;
+    window.clearTimeout(advanceTimer.current);
+    resetCard(next);
+  }
+
+  function afterSave(
+    nextScores: Record<string, number>,
+    nextCompletedAt: Record<string, string>,
+    starsCount: number,
+    alreadyComplete: boolean
+  ) {
+    setScores(nextScores);
+    setCompletedAt(nextCompletedAt);
+    const unitDone = isUnitComplete(unit, nextScores);
+    if (!alreadyComplete && unitDone) {
+      setCelebrate(true);
+      setModeFinished(true);
+      return;
+    }
+    if (starsCount < 1) return;
+    const nextIncomplete = firstIncompleteIndex(unit, mode, nextScores);
+    if (nextIncomplete < 0) {
+      setModeFinished(true);
+      return;
+    }
+    window.clearTimeout(advanceTimer.current);
+    advanceTimer.current = window.setTimeout(() => resetCard(nextIncomplete), 1400);
+  }
+
   async function persist(starsCount: number) {
-    await fetch("/api/progress", {
+    const alreadyComplete = isUnitComplete(unit, scores);
+    const response = await fetch("/api/progress", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ unitId: unit.id, mode, index, stars: starsCount }),
     });
+    const next = (await response.json()) as {
+      scores?: Record<string, number>;
+      completedAt?: Record<string, string>;
+    };
+    const key = itemKey(unit.id, mode, index);
+    const fallback = { ...scores, [key]: Math.max(scores[key] || 0, starsCount) };
+    afterSave(next?.scores || fallback, next?.completedAt || completedAt, starsCount, alreadyComplete);
   }
 
   async function play(text: string, rateId = rate) {
@@ -91,9 +148,9 @@ export function PracticeClient({
       const target = item.en as string;
       const englishScore = bestMatch(heard, [target]).score;
       const label = scoreLabel(englishScore);
-      await persist(label.stars);
       setResult({ kind: "speak", heard, expected: target, label });
-      setMessage("");
+      setMessage(label.stars ? "Indo para a próxima frase..." : "Tente de novo nesta frase.");
+      await persist(label.stars);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não consegui ouvir.");
     } finally {
@@ -109,7 +166,6 @@ export function PracticeClient({
     }
     const match = bestMatch(draft, item.answers);
     const label = scoreLabel(match.score);
-    await persist(label.stars);
     setResult({
       kind: "write",
       heard: draft,
@@ -118,7 +174,8 @@ export function PracticeClient({
       diff: diffWords(draft, item.answers[0]),
       tip: item.tip,
     });
-    setMessage("");
+    setMessage(label.stars ? "Indo para a próxima frase..." : "Tente de novo nesta frase.");
+    await persist(label.stars);
   }
 
   return (
@@ -129,16 +186,19 @@ export function PracticeClient({
         </Link>
         <div>
           <p className="eyebrow">
-            {unit.title} · {mode === "speak" ? "Fala" : "Escrita"}
+            {unit.title} · {mode === "speak" ? "Fala" : "Escrita"} · cena {scene.done}/{scene.total}
           </p>
           <h2>
-            {index + 1} de {list.length}
+            {mode === "speak" ? "Fala" : "Escrita"} {index + 1} de {list.length}
           </h2>
         </div>
       </div>
       <div className="progress-dots" aria-hidden="true">
         {list.map((_, i) => (
-          <i key={i} className={`${i === index ? "on" : ""} ${i < index ? "done" : ""}`} />
+          <i
+            key={i}
+            className={`${i === index ? "on" : ""} ${itemDone(unit.id, mode, i, scores) ? "done" : ""}`}
+          />
         ))}
       </div>
       <article className="card">
@@ -186,6 +246,13 @@ export function PracticeClient({
         ) : null}
       </article>
       {message ? <p className="banner">{message}</p> : null}
+      {modeFinished && !celebrate ? (
+        <p className="banner">
+          Você terminou a {mode === "speak" ? "fala" : "escrita"} desta cena.{" "}
+          <Link href={otherHref}>Ir para {mode === "speak" ? "escrever" : "falar"}</Link> e completar as {scene.total}{" "}
+          atividades.
+        </p>
+      ) : null}
       {result ? (
         <section className={`result ${result.label.key}`}>
           <div className="result-head">
@@ -229,9 +296,34 @@ export function PracticeClient({
           Anterior
         </button>
         <button type="button" disabled={index === list.length - 1} onClick={() => move(1)}>
-          Próxima
+          Próxima frase
         </button>
       </div>
+      {celebrate ? (
+        <div className="celebrate" role="dialog" aria-labelledby="celebrate-title">
+          <p className="eyebrow">Cena concluída</p>
+          <h2 id="celebrate-title">Parabéns!</h2>
+          <p>
+            Você completou as {scene.total} atividades de <strong>{unit.title}</strong>. Ela foi para{" "}
+            <strong>Revisar</strong>.
+            {unit.scene === "daily" && dailyState.status === "waiting" ? (
+              <>
+                {" "}
+                A <strong>{dailyState.next.title}</strong> será liberada amanhã no Meu dia.
+              </>
+            ) : null}
+          </p>
+          <div className="actions">
+            <Link href="/revisar">Ver em Revisar</Link>
+            <Link className="ghost-link" href="/">
+              Meu dia
+            </Link>
+            <button className="ghost" type="button" onClick={() => setCelebrate(false)}>
+              Continuar aqui
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

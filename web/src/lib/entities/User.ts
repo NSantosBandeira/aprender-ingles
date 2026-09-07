@@ -11,6 +11,7 @@ export type UserRow = {
   scores: Record<string, number>;
   lastUnit: string | null;
   lastMode: string | null;
+  completedAt: Record<string, string>;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -29,6 +30,7 @@ export const User = new EntitySchema<UserRow>({
     scores: { type: "jsonb" },
     lastUnit: { name: "last_unit", type: "text", nullable: true },
     lastMode: { name: "last_mode", type: "text", nullable: true },
+    completedAt: { name: "completed_at", type: "jsonb" },
     createdAt: { name: "created_at", type: "timestamptz", createDate: true },
     updatedAt: { name: "updated_at", type: "timestamptz", updateDate: true },
   },

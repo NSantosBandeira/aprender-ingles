@@ -223,6 +223,11 @@ button:disabled {
   padding: 12px 14px;
 }
 
+.banner a {
+  color: var(--terra-dark);
+  font-weight: 700;
+}
+
 .practice-top {
   margin-bottom: 10px;
 }
@@ -421,6 +426,81 @@ textarea {
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ghost-link {
+  font: inherit;
+  color: var(--ink);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 11px 16px;
+}
+
+.unit.waiting {
+  margin-bottom: 28px;
+}
+
+.unit.waiting span {
+  color: var(--terra);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.unit.complete {
+  border-color: #b7d2bc;
+}
+
+.unit.complete .unit-top span {
+  color: var(--moss);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.celebrate {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  z-index: 20;
+  width: min(440px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.celebrate h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-serif), "Source Serif 4", Georgia, serif;
+}
+
+.celebrate p {
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+
+.celebrate .actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.celebrate .actions a {
+  font: inherit;
+  text-decoration: none;
+  background: var(--terra);
+  color: #fffaf1;
+  border-radius: 999px;
+  padding: 11px 16px;
 }
 
 @media (max-width: 720px) {

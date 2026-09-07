@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { User, type UserRow } from "./entities/User";
 import { getDataSource } from "./data-source";
+import { isUnitComplete, todayStamp, unitById } from "./content";
 
 export type Profile = {
   id: string;
@@ -13,6 +14,7 @@ export type Profile = {
   scores: Record<string, number>;
   lastUnit: string | null;
   lastMode: string | null;
+  completedAt: Record<string, string>;
 };
 
 function toProfile(user: UserRow): Profile {
@@ -27,6 +29,7 @@ function toProfile(user: UserRow): Profile {
     scores: user.scores || {},
     lastUnit: user.lastUnit,
     lastMode: user.lastMode,
+    completedAt: user.completedAt || {},
   };
 }
 
@@ -48,6 +51,7 @@ export async function upsertUser(input: { id: string; email: string; name?: stri
       voiceRate: "very-slow",
       xp: 0,
       scores: {},
+      completedAt: {},
     });
   } else {
     user.name = input.name || user.name;
@@ -91,5 +95,13 @@ export async function saveScore(email: string, key: string, stars: number, lastU
   }
   user.lastUnit = lastUnit;
   user.lastMode = lastMode;
+  const unit = unitById(lastUnit);
+  if (unit && isUnitComplete(unit, user.scores || scores)) {
+    const completedAt = { ...(user.completedAt || {}) };
+    if (!completedAt[unit.id]) {
+      completedAt[unit.id] = todayStamp();
+      user.completedAt = completedAt;
+    }
+  }
   return toProfile(await repo.save(user));
 }

@@ -5,24 +5,22 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceControls } from "./VoiceControls";
+import { UnitsGrid } from "./UnitsGrid";
 import { canListen, speakEnglish } from "@/lib/speech";
-import { unitProgress, type Unit } from "@/lib/content";
-import { ROLES } from "@/lib/roles";
+import { homeContent, unitProgress, type DailyHome } from "@/lib/content";
+import { ROLES, type RoleId } from "@/lib/roles";
 import type { Profile } from "@/lib/db";
 
-export function HomeClient({
-  profile,
-  work,
-  fundamentals,
-}: {
-  profile: Profile;
-  work: Unit[];
-  fundamentals: Unit[];
-}) {
+export function HomeClient({ profile }: { profile: Profile }) {
   const router = useRouter();
   const [showListenBanner, setShowListenBanner] = useState(false);
   const scores = profile.scores || {};
-  const totals = [...work, ...fundamentals].reduce(
+  const { daily, workActive, fundamentalsActive, review } = homeContent(
+    profile.roles as RoleId[],
+    scores,
+    profile.completedAt || {}
+  );
+  const totals = [...(daily.status === "active" ? [daily.unit] : []), ...workActive, ...fundamentalsActive, ...review].reduce(
     (acc, unit) => {
       const progress = unitProgress(unit, scores);
       acc.done += progress.done;
@@ -55,11 +53,16 @@ export function HomeClient({
       <header className="top">
         <div className="user-row">
           <p className="eyebrow">Inglês do seu dia no time</p>
-          <form action={logout}>
-            <button className="ghost" type="submit">
-              Sair
-            </button>
-          </form>
+          <div className="header-actions">
+            <Link className="ghost-link" href="/revisar">
+              Revisar{review.length ? ` (${review.length})` : ""}
+            </Link>
+            <form action={logout}>
+              <button className="ghost" type="submit">
+                Sair
+              </button>
+            </form>
+          </div>
         </div>
         <h1>Fale e escreva no seu contexto.</h1>
         <p className="lead">
@@ -90,51 +93,64 @@ export function HomeClient({
         <p className="banner">Para a fala, use Chrome ou Edge e permita o microfone.</p>
       ) : null}
 
+      <DailyBlock daily={daily} scores={scores} />
+
       <h2 className="section-title">Meu dia</h2>
-      <UnitGrid units={work} scores={scores} empty="Nenhuma cena para esses papéis ainda." />
+      <UnitsGrid units={workActive} scores={scores} empty="Nenhuma outra cena para esses papéis ainda." />
 
       <h2 className="section-title">Fundamentos</h2>
-      <UnitGrid units={fundamentals} scores={scores} />
+      <UnitsGrid units={fundamentalsActive} scores={scores} empty="Nenhum fundamento pendente." />
     </>
   );
 }
 
-function UnitGrid({
-  units,
-  scores,
-  empty,
-}: {
-  units: Unit[];
-  scores: Record<string, number>;
-  empty?: string;
-}) {
-  if (!units.length) return <p className="hint">{empty}</p>;
+function DailyBlock({ daily, scores }: { daily: DailyHome; scores: Record<string, number> }) {
+  if (daily.status === "none") return null;
+
+  if (daily.status === "waiting") {
+    return (
+      <>
+        <h2 className="section-title">
+          Jornada daily · {daily.step - 1} de {daily.total}
+        </h2>
+        <article className="unit waiting">
+          <div className="unit-top">
+            <h3>{daily.next.title}</h3>
+            <span>Amanhã</span>
+          </div>
+          <p>
+            Você concluiu a daily de hoje. <strong>{daily.next.title}</strong> será liberada no próximo dia, com frases
+            novas.
+          </p>
+        </article>
+      </>
+    );
+  }
+
+  if (daily.status === "finished") {
+    return (
+      <>
+        <h2 className="section-title">Jornada daily · {daily.total} de {daily.total}</h2>
+        <article className="unit complete">
+          <div className="unit-top">
+            <h3>Jornada concluída</h3>
+            <span>Feito</span>
+          </div>
+          <p>
+            Você passou pelas {daily.total} dailies. Pode refazer qualquer uma em{" "}
+            <Link href="/revisar">Revisar</Link>.
+          </p>
+        </article>
+      </>
+    );
+  }
+
   return (
-    <div className="units">
-      {units.map((unit) => {
-        const progress = unitProgress(unit, scores);
-        const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
-        return (
-          <article className="unit" key={unit.id}>
-            <div className="unit-top">
-              <h3>{unit.title}</h3>
-              <span>
-                {progress.done}/{progress.total}
-              </span>
-            </div>
-            <p>{unit.blurb}</p>
-            <div className="bar">
-              <i style={{ width: `${pct}%` }} />
-            </div>
-            <div className="unit-actions">
-              <Link href={`/practice/${unit.id}/speak`}>Falar</Link>
-              <Link className="ghost" href={`/practice/${unit.id}/write`}>
-                Escrever
-              </Link>
-            </div>
-          </article>
-        );
-      })}
-    </div>
+    <>
+      <h2 className="section-title">
+        Jornada daily · {daily.step} de {daily.total}
+      </h2>
+      <UnitsGrid units={[daily.unit]} scores={scores} />
+    </>
   );
 }
