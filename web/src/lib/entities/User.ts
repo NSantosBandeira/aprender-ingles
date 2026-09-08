@@ -12,6 +12,7 @@ export type UserRow = {
   lastUnit: string | null;
   lastMode: string | null;
   completedAt: Record<string, string>;
+  passwordHash: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -31,6 +32,7 @@ export const User = new EntitySchema<UserRow>({
     lastUnit: { name: "last_unit", type: "text", nullable: true },
     lastMode: { name: "last_mode", type: "text", nullable: true },
     completedAt: { name: "completed_at", type: "jsonb" },
+    passwordHash: { name: "password_hash", type: "text", nullable: true },
     createdAt: { name: "created_at", type: "timestamptz", createDate: true },
     updatedAt: { name: "updated_at", type: "timestamptz", updateDate: true },
   },

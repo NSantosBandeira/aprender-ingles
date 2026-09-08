@@ -3,6 +3,7 @@ import pg from "pg";
 import { DataSource } from "typeorm";
 import { User } from "./entities/User";
 import { migrations } from "./migrations";
+import { describeDbError } from "./db-error";
 
 let dataSource: DataSource | null = null;
 
@@ -49,6 +50,6 @@ export async function getDataSource() {
   } catch (error) {
     if (next.isInitialized) await next.destroy().catch(() => undefined);
     dataSource = null;
-    throw error;
+    throw describeDbError(error);
   }
 }

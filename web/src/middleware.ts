@@ -13,9 +13,28 @@ function requestOrigin(req: { nextUrl: URL; headers: Headers }) {
   return req.nextUrl.origin;
 }
 
+function isPublicPath(pathname: string) {
+  if (
+    pathname === "/" ||
+    pathname.startsWith("/sobre") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/cadastro") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/health") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/marketing")
+  ) {
+    return true;
+  }
+  return /\.[a-zA-Z0-9]+$/.test(pathname);
+}
+
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth") || pathname.startsWith("/api/health") || pathname.startsWith("/_next")) {
+  if (isPublicPath(pathname)) {
+    if (req.auth && (pathname.startsWith("/login") || pathname.startsWith("/cadastro"))) {
+      return NextResponse.redirect(new URL("/app", requestOrigin(req)));
+    }
     return NextResponse.next();
   }
   if (!req.auth) {

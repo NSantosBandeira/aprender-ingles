@@ -31,7 +31,7 @@ export function RolePicker({ initialRoles = [] }: { initialRoles?: string[] }) {
       setError("Não consegui salvar. Veja se o Postgres está no Docker.");
       return;
     }
-    router.push("/");
+    router.push("/app");
     router.refresh();
   }
 

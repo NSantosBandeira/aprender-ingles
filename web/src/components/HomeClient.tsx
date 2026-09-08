@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceControls } from "./VoiceControls";
 import { UnitsGrid } from "./UnitsGrid";
+import { ThemeToggle } from "./ThemeToggle";
 import { canListen, speakEnglish } from "@/lib/speech";
 import { homeContent, unitProgress, type DailyHome } from "@/lib/content";
 import { ROLES, type RoleId } from "@/lib/roles";
@@ -54,6 +55,7 @@ export function HomeClient({ profile }: { profile: Profile }) {
         <div className="user-row">
           <p className="eyebrow">Inglês do seu dia no time</p>
           <div className="header-actions">
+            <ThemeToggle />
             <Link className="ghost-link" href="/revisar">
               Revisar{review.length ? ` (${review.length})` : ""}
             </Link>

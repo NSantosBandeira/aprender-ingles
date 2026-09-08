@@ -1,22 +1,21 @@
 import Link from "next/link";
-import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { getUserByEmail } from "@/lib/db";
 import { homeContent } from "@/lib/content";
 import { UnitsGrid } from "@/components/UnitsGrid";
+import { DatabaseUnavailable } from "@/components/DatabaseUnavailable";
+import { requireProfile } from "@/lib/session-profile";
 import type { RoleId } from "@/lib/roles";
 
 export default async function ReviewPage() {
-  const session = await auth();
-  if (!session?.user?.email) redirect("/login");
-  const profile = await getUserByEmail(session.user.email);
-  if (!profile) redirect("/login");
+  const result = await requireProfile();
+  if ("error" in result) return <DatabaseUnavailable message={result.error} />;
+  const profile = result.profile;
   if (!profile.roles.length) redirect("/onboarding");
   const { review } = homeContent(profile.roles as RoleId[], profile.scores || {}, profile.completedAt || {});
 
   return (
     <main className="app-shell">
-      <Link className="back" href="/">
+      <Link className="back" href="/app">
         ← Meu dia
       </Link>
       <p className="eyebrow">Revisão</p>

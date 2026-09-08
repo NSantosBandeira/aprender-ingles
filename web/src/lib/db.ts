@@ -47,6 +47,7 @@ export async function upsertUser(input: { id: string; email: string; name?: stri
       email: input.email,
       name: input.name || null,
       image: input.image || null,
+      passwordHash: null,
       roles: [],
       voiceRate: "very-slow",
       xp: 0,
@@ -64,6 +65,28 @@ export async function getUserByEmail(email: string) {
   const repo = await users();
   const user = await repo.findOne({ where: { email } });
   return user ? toProfile(user) : null;
+}
+
+export async function getUserAuthByEmail(email: string) {
+  const repo = await users();
+  return repo.findOne({ where: { email } });
+}
+
+export async function createUserWithPassword(input: { name: string; email: string; passwordHash: string }) {
+  const repo = await users();
+  const user = repo.create({
+    id: crypto.randomUUID(),
+    email: input.email,
+    name: input.name,
+    image: null,
+    passwordHash: input.passwordHash,
+    roles: [],
+    voiceRate: "very-slow",
+    xp: 0,
+    scores: {},
+    completedAt: {},
+  });
+  return toProfile(await repo.save(user));
 }
 
 export async function updateRoles(email: string, roles: string[]) {

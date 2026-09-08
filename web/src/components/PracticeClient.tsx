@@ -181,7 +181,7 @@ export function PracticeClient({
   return (
     <>
       <div className="practice-top">
-        <Link className="back" href="/">
+        <Link className="back" href="/app">
           ← Meu dia
         </Link>
         <div>
@@ -315,7 +315,7 @@ export function PracticeClient({
           </p>
           <div className="actions">
             <Link href="/revisar">Ver em Revisar</Link>
-            <Link className="ghost-link" href="/">
+            <Link className="ghost-link" href="/app">
               Meu dia
             </Link>
             <button className="ghost" type="button" onClick={() => setCelebrate(false)}>

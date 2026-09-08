@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDataSource } from "@/lib/data-source";
+import { describeDbError } from "@/lib/db-error";
 
 export async function GET() {
   try {
@@ -8,7 +9,7 @@ export async function GET() {
     return NextResponse.json({ ok: true, users: rows[0]?.n ?? 0 });
   } catch (error) {
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "falha no banco" },
+      { ok: false, error: describeDbError(error).message },
       { status: 500 }
     );
   }
