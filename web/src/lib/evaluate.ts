@@ -50,13 +50,40 @@ function levenshtein(a: string, b: string) {
   return row[b.length];
 }
 
+function charSimilarity(a: string, b: string) {
+  if (!a && !b) return 1;
+  if (!a || !b) return 0;
+  return 1 - levenshtein(a, b) / Math.max(a.length, b.length);
+}
+
+function sameWord(a: string, b: string) {
+  return a === b || charSimilarity(a, b) >= 0.85;
+}
+
+function wordDistance(left: string[], right: string[]) {
+  if (left.length === 0) return right.length;
+  if (right.length === 0) return left.length;
+
+  const row = Array.from({ length: right.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= left.length; i += 1) {
+    let prev = i - 1;
+    row[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const current = row[j];
+      const cost = sameWord(left[i - 1], right[j - 1]) ? 0 : 1;
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + cost);
+      prev = current;
+    }
+  }
+  return row[right.length];
+}
+
 export function similarity(a: string, b: string) {
-  const left = normalize(a);
-  const right = normalize(b);
-  if (!left && !right) return 1;
-  if (!left || !right) return 0;
-  const distance = levenshtein(left, right);
-  return 1 - distance / Math.max(left.length, right.length);
+  const left = tokens(a);
+  const right = tokens(b);
+  if (!left.length && !right.length) return 1;
+  if (!left.length || !right.length) return 0;
+  return 1 - wordDistance(left, right) / Math.max(left.length, right.length);
 }
 
 export function bestMatch(input: string, answers: string[]) {

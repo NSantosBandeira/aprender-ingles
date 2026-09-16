@@ -1,16 +1,24 @@
 import { units as rawFundamentals } from "./fundamentals";
 import { extraDailyUnits } from "./daily-journey";
+import { applySprintMeta, project1ExtraUnits } from "./project-1/units";
+import { clampDays, clampSprints } from "./projects";
 import { ALL_ROLES, type RoleId } from "./roles";
 import { workUnits, type Unit } from "./work-units";
 
 export type { Unit } from "./work-units";
+export type { SprintPhase } from "./work-units";
 
 export function todayStamp(now = new Date()) {
   return now.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 }
 
+let cachedWork: Unit[] | null = null;
+
 function allWork(): Unit[] {
-  return [...workUnits, ...extraDailyUnits];
+  if (!cachedWork) {
+    cachedWork = [...workUnits, ...extraDailyUnits, ...project1ExtraUnits()].map(applySprintMeta);
+  }
+  return cachedWork;
 }
 
 export function allUnits(): Unit[] {
@@ -23,9 +31,10 @@ export function allUnits(): Unit[] {
   return [...allWork(), ...fundamentals];
 }
 
-export function unitsForRoles(roles: RoleId[]) {
+export function unitsForRoles(roles: RoleId[] = []) {
   const list = allUnits();
-  const work = list.filter((unit) => unit.track === "work" && unit.roles.some((role) => roles.includes(role)));
+  const selected = roles || [];
+  const work = list.filter((unit) => unit.track === "work" && unit.roles.some((role) => selected.includes(role)));
   const fundamentals = list.filter((unit) => unit.track === "fundamentals");
   return { work, fundamentals };
 }
@@ -48,6 +57,15 @@ export function firstIncompleteIndex(unit: Unit, mode: "speak" | "write", scores
     if (!itemDone(unit.id, mode, i, scores)) return i;
   }
   return -1;
+}
+
+export function modeProgress(unit: Unit, mode: "speak" | "write", scores: Record<string, number>) {
+  const list = mode === "speak" ? unit.speak : unit.write;
+  let done = 0;
+  for (let i = 0; i < list.length; i += 1) {
+    if (itemDone(unit.id, mode, i, scores)) done += 1;
+  }
+  return { done, total: list.length, complete: list.length > 0 && done >= list.length };
 }
 
 export function unitProgress(unit: Unit, scores: Record<string, number>) {
@@ -81,16 +99,227 @@ export function splitUnits(units: Unit[], scores: Record<string, number>) {
   return { active, completed };
 }
 
-export function dailySequence(roles: RoleId[]): Unit[] {
-  const join = roles.some((role) => role === "developer" || role === "product-owner" || role === "manager");
-  const lead = roles.some((role) => role === "tech-lead" || role === "scrum-master");
-  const pool = allWork().filter((unit) => unit.scene === "daily");
-  const track = join
+export type SprintContext = {
+  roles: RoleId[];
+  scores: Record<string, number>;
+  completedAt: Record<string, string>;
+  sprintCount: number;
+  sprintDays: number;
+  currentProject: number;
+};
+
+export function sprintContextFrom(input: {
+  roles?: string[] | null;
+  scores?: Record<string, number> | null;
+  completedAt?: Record<string, string> | null;
+  sprintCount?: number | null;
+  sprintDays?: number | null;
+  currentProject?: number | null;
+}): SprintContext {
+  return {
+    roles: (input.roles || []) as RoleId[],
+    scores: input.scores || {},
+    completedAt: input.completedAt || {},
+    sprintCount: clampSprints(input.sprintCount ?? 1),
+    sprintDays: clampDays(input.sprintDays ?? 5),
+    currentProject: input.currentProject ?? 1,
+  };
+}
+
+function roleWork(roles: RoleId[]) {
+  return allWork().filter((unit) => unit.roles.some((role) => roles.includes(role)));
+}
+
+function joinTrack(roles: RoleId[]) {
+  return roles.some((role) => role === "developer" || role === "product-owner" || role === "manager");
+}
+
+function leadTrack(roles: RoleId[]) {
+  return roles.some((role) => role === "tech-lead" || role === "scrum-master");
+}
+
+function ceremonyFor(ctx: SprintContext, sprint: number, phase: "planning" | "review" | "retro") {
+  return roleWork(ctx.roles).find(
+    (unit) => unit.project === ctx.currentProject && unit.sprint === sprint && unit.phase === phase
+  );
+}
+
+function dailiesFor(ctx: SprintContext, sprint: number) {
+  const pool = roleWork(ctx.roles).filter(
+    (unit) =>
+      unit.project === ctx.currentProject &&
+      unit.sprint === sprint &&
+      unit.phase === "daily" &&
+      (unit.day || 0) <= ctx.sprintDays
+  );
+  const track = joinTrack(ctx.roles)
     ? pool.filter((unit) => unit.roles.includes("developer"))
-    : lead
+    : leadTrack(ctx.roles)
       ? pool.filter((unit) => unit.roles.includes("scrum-master"))
       : [];
-  return [...track].sort((a, b) => (a.journey || 0) - (b.journey || 0));
+  return [...track].sort((a, b) => (a.day || 0) - (b.day || 0));
+}
+
+function midFor(ctx: SprintContext, sprint: number) {
+  return roleWork(ctx.roles).filter(
+    (unit) => unit.project === ctx.currentProject && unit.sprint === sprint && unit.phase === "mid"
+  );
+}
+
+function sprintUnits(ctx: SprintContext, sprint: number) {
+  const planning = ceremonyFor(ctx, sprint, "planning");
+  const dailies = dailiesFor(ctx, sprint);
+  const review = ceremonyFor(ctx, sprint, "review");
+  const retro = ceremonyFor(ctx, sprint, "retro");
+  const mid = midFor(ctx, sprint);
+  return { planning, dailies, review, retro, mid };
+}
+
+function isSprintComplete(ctx: SprintContext, sprint: number) {
+  const { planning, dailies, review, retro } = sprintUnits(ctx, sprint);
+  if (planning && !isUnitComplete(planning, ctx.scores)) return false;
+  if (dailies.some((unit) => !isUnitComplete(unit, ctx.scores))) return false;
+  if (review && !isUnitComplete(review, ctx.scores)) return false;
+  if (retro && !isUnitComplete(retro, ctx.scores)) return false;
+  return Boolean(planning || dailies.length || review || retro);
+}
+
+export type SprintHome =
+  | { status: "planning"; unit: Unit; sprint: number; sprintCount: number; sprintDays: number }
+  | { status: "daily"; unit: Unit; day: number; sprint: number; sprintCount: number; sprintDays: number }
+  | { status: "waiting-daily"; next: Unit; day: number; sprint: number; sprintCount: number; sprintDays: number }
+  | { status: "review"; unit: Unit; sprint: number; sprintCount: number; sprintDays: number }
+  | { status: "retro"; unit: Unit; sprint: number; sprintCount: number; sprintDays: number }
+  | { status: "waiting-sprint"; nextSprint: number; sprint: number; sprintCount: number; sprintDays: number }
+  | { status: "project-done"; sprint: number; sprintCount: number; sprintDays: number }
+  | { status: "none"; sprint: number; sprintCount: number; sprintDays: number };
+
+function currentSprintState(ctx: SprintContext, today = todayStamp()) {
+  for (let sprint = 1; sprint <= ctx.sprintCount; sprint += 1) {
+    if (!isSprintComplete(ctx, sprint)) return { sprint, waiting: false as const };
+    if (sprint === ctx.sprintCount) return { sprint, waiting: false as const, done: true as const };
+    const { retro, review, dailies, planning } = sprintUnits(ctx, sprint);
+    const closer = retro || review || dailies[dailies.length - 1] || planning;
+    const doneOn = closer ? ctx.completedAt[closer.id] || today : today;
+    if (doneOn >= today) return { sprint: sprint + 1, waiting: true as const };
+  }
+  return { sprint: ctx.sprintCount, waiting: false as const, done: true as const };
+}
+
+export function sprintPhase(ctx: SprintContext, today = todayStamp()): SprintHome {
+  const base = { sprintCount: ctx.sprintCount, sprintDays: ctx.sprintDays };
+  if (!ctx.roles.length) return { status: "none", sprint: 1, ...base };
+
+  const state = currentSprintState(ctx, today);
+  if ("done" in state && state.done) {
+    return { status: "project-done", sprint: ctx.sprintCount, ...base };
+  }
+  if (state.waiting) {
+    return { status: "waiting-sprint", nextSprint: state.sprint, sprint: state.sprint - 1, ...base };
+  }
+
+  const sprint = state.sprint;
+  const { planning, dailies, review, retro } = sprintUnits(ctx, sprint);
+
+  if (planning && !isUnitComplete(planning, ctx.scores)) {
+    return { status: "planning", unit: planning, sprint, ...base };
+  }
+
+  for (let i = 0; i < dailies.length; i += 1) {
+    const unit = dailies[i];
+    const day = unit.day || i + 1;
+    if (isUnitComplete(unit, ctx.scores)) continue;
+    if (i === 0) return { status: "daily", unit, day, sprint, ...base };
+    const prev = dailies[i - 1];
+    const doneOn = ctx.completedAt[prev.id] || today;
+    if (doneOn < today) return { status: "daily", unit, day, sprint, ...base };
+    return { status: "waiting-daily", next: unit, day, sprint, ...base };
+  }
+
+  if (review && !isUnitComplete(review, ctx.scores)) {
+    return { status: "review", unit: review, sprint, ...base };
+  }
+  if (retro && !isUnitComplete(retro, ctx.scores)) {
+    return { status: "retro", unit: retro, sprint, ...base };
+  }
+
+  if (sprint < ctx.sprintCount) {
+    return { status: "waiting-sprint", nextSprint: sprint + 1, sprint, ...base };
+  }
+  return { status: "project-done", sprint, ...base };
+}
+
+export function projectStarted(ctx: SprintContext) {
+  return roleWork(ctx.roles).some(
+    (unit) =>
+      unit.project === ctx.currentProject &&
+      unit.phase &&
+      unit.phase !== "mid" &&
+      isUnitComplete(unit, ctx.scores)
+  );
+}
+
+export function isUnitLocked(unit: Unit, ctx: SprintContext) {
+  if (unit.track === "fundamentals") return false;
+  if (!unit.phase) return false;
+  if (isUnitComplete(unit, ctx.scores)) return false;
+
+  const home = sprintPhase(ctx);
+  if ("unit" in home && home.unit.id === unit.id) return false;
+  if (
+    unit.phase === "mid" &&
+    (home.status === "daily" || home.status === "waiting-daily") &&
+    unit.sprint === home.sprint &&
+    unit.project === ctx.currentProject
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function celebrateCopy(unit: Unit, home: SprintHome) {
+  if (unit.phase === "planning") {
+    return "Planning ok. A Daily 1 já está no Meu dia.";
+  }
+  if (unit.phase === "daily" && home.status === "waiting-daily") {
+    return `A ${home.next.title} será liberada amanhã no Meu dia.`;
+  }
+  if (unit.phase === "daily" && home.status === "review") {
+    return "A última daily da sprint está feita. O Review já está no Meu dia.";
+  }
+  if (unit.phase === "daily" && home.status === "retro") {
+    return "A última daily da sprint está feita. A Retro já está no Meu dia.";
+  }
+  if (unit.phase === "review") {
+    return "Review ok. A Retro já está no Meu dia.";
+  }
+  if (unit.phase === "retro" && home.status === "waiting-sprint") {
+    return `Sprint ${home.sprint} fechada. A Sprint ${home.nextSprint} começa amanhã.`;
+  }
+  if (unit.phase === "retro" && home.status === "project-done") {
+    return "Projeto concluído. O próximo nível chega em breve.";
+  }
+  return `Você completou as atividades de ${unit.title}. Ela foi para Revisar.`;
+}
+
+export function phaseLabel(home: SprintHome) {
+  if (home.status === "planning") return "Planning";
+  if (home.status === "daily") return `Dia ${home.day} de ${home.sprintDays}`;
+  if (home.status === "waiting-daily") return `Dia ${home.day - 1} de ${home.sprintDays}`;
+  if (home.status === "review") return "Review";
+  if (home.status === "retro") return "Retro";
+  if (home.status === "waiting-sprint") return "Sprint fechada";
+  if (home.status === "project-done") return "Projeto concluído";
+  return "";
+}
+
+export function dailySequence(roles: RoleId[]): Unit[] {
+  const ctx = sprintContextFrom({ roles, sprintCount: 10, sprintDays: 10, currentProject: 1 });
+  const days: Unit[] = [];
+  for (let sprint = 1; sprint <= 10; sprint += 1) {
+    days.push(...dailiesFor({ ...ctx, sprintDays: 10 }, sprint));
+  }
+  return days;
 }
 
 export type DailyHome =
@@ -99,49 +328,37 @@ export type DailyHome =
   | { status: "finished"; total: number }
   | { status: "none" };
 
-export function dailyHome(
-  roles: RoleId[],
-  scores: Record<string, number>,
-  completedAt: Record<string, string>,
-  today = todayStamp()
-): DailyHome {
-  const sequence = dailySequence(roles);
-  if (!sequence.length) return { status: "none" };
-  const total = sequence.length;
-
-  for (let i = 0; i < sequence.length; i += 1) {
-    const unit = sequence[i];
-    const step = unit.journey || i + 1;
-    if (isUnitComplete(unit, scores)) continue;
-    if (i === 0) return { status: "active", unit, step, total };
-    const prev = sequence[i - 1];
-    const doneOn = completedAt[prev.id] || today;
-    if (doneOn < today) return { status: "active", unit, step, total };
-    return { status: "waiting", next: unit, step, total };
+export function dailyHome(ctx: SprintContext, today = todayStamp()): DailyHome {
+  const home = sprintPhase(ctx, today);
+  if (home.status === "daily") {
+    return { status: "active", unit: home.unit, step: home.day, total: home.sprintDays };
   }
-
-  return { status: "finished", total };
+  if (home.status === "waiting-daily") {
+    return { status: "waiting", next: home.next, step: home.day, total: home.sprintDays };
+  }
+  if (home.status === "review" || home.status === "retro" || home.status === "project-done" || home.status === "waiting-sprint") {
+    return { status: "finished", total: home.sprintDays };
+  }
+  return { status: "none" };
 }
 
-export function homeContent(
-  roles: RoleId[],
-  scores: Record<string, number>,
-  completedAt: Record<string, string>
-) {
-  const { work, fundamentals } = unitsForRoles(roles);
-  const otherWork = work.filter((unit) => unit.scene !== "daily");
-  const workSplit = splitUnits(otherWork, scores);
-  const fundSplit = splitUnits(fundamentals, scores);
-  const dailyUnits = dailySequence(roles);
-  const review = [
-    ...dailyUnits.filter((unit) => isUnitComplete(unit, scores)),
-    ...workSplit.completed,
-    ...fundSplit.completed,
-  ];
+export function homeContent(ctx: SprintContext) {
+  const { work, fundamentals } = unitsForRoles(ctx.roles);
+  const fundSplit = splitUnits(fundamentals, ctx.scores);
+  const home = sprintPhase(ctx);
+  const sprint = "sprint" in home ? home.sprint : 1;
+  const { mid, planning, dailies, review, retro } = sprintUnits(ctx, sprint);
+  const showMid = home.status === "daily" || home.status === "waiting-daily";
+  const workActive = showMid ? mid.filter((unit) => !isUnitComplete(unit, ctx.scores)) : [];
+  const completedWork = work.filter(
+    (unit) => unit.project === ctx.currentProject && isUnitComplete(unit, ctx.scores)
+  );
+  const sprintTrack = [planning, ...dailies, review, retro, ...mid].filter((unit): unit is Unit => Boolean(unit));
   return {
-    daily: dailyHome(roles, scores, completedAt),
-    workActive: workSplit.active,
+    sprintHome: home,
+    workActive,
     fundamentalsActive: fundSplit.active,
-    review,
+    review: [...completedWork, ...fundSplit.completed],
+    sprintTrack,
   };
 }

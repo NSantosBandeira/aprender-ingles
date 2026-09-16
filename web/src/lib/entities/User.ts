@@ -1,4 +1,5 @@
 import { EntitySchema } from "typeorm";
+import type { ProjectSetup } from "../projects";
 
 export type UserRow = {
   id: string;
@@ -13,6 +14,8 @@ export type UserRow = {
   lastMode: string | null;
   completedAt: Record<string, string>;
   passwordHash: string | null;
+  currentProject: number;
+  projectSetups: ProjectSetup[];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -33,6 +36,8 @@ export const User = new EntitySchema<UserRow>({
     lastMode: { name: "last_mode", type: "text", nullable: true },
     completedAt: { name: "completed_at", type: "jsonb" },
     passwordHash: { name: "password_hash", type: "text", nullable: true },
+    currentProject: { name: "current_project", type: "int", default: 1 },
+    projectSetups: { name: "project_setups", type: "jsonb", default: [] },
     createdAt: { name: "created_at", type: "timestamptz", createDate: true },
     updatedAt: { name: "updated_at", type: "timestamptz", updateDate: true },
   },

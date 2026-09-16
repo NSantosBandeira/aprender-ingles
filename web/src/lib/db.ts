@@ -2,6 +2,14 @@ import "reflect-metadata";
 import { User, type UserRow } from "./entities/User";
 import { getDataSource } from "./data-source";
 import { isUnitComplete, todayStamp, unitById } from "./content";
+import {
+  DEFAULT_DAYS,
+  DEFAULT_SPRINTS,
+  normalizeProjectSetups,
+  setupForProject,
+  upsertProjectSetup,
+  type ProjectSetup,
+} from "./projects";
 
 export type Profile = {
   id: string;
@@ -15,9 +23,17 @@ export type Profile = {
   lastUnit: string | null;
   lastMode: string | null;
   completedAt: Record<string, string>;
+  currentProject: number;
+  projectSetups: ProjectSetup[];
+  sprintCount: number;
+  sprintDays: number;
+  projectConfigured: boolean;
 };
 
 function toProfile(user: UserRow): Profile {
+  const currentProject = user.currentProject ?? 1;
+  const setups = normalizeProjectSetups(user.projectSetups);
+  const current = setupForProject(setups, currentProject);
   return {
     id: user.id,
     email: user.email,
@@ -30,6 +46,11 @@ function toProfile(user: UserRow): Profile {
     lastUnit: user.lastUnit,
     lastMode: user.lastMode,
     completedAt: user.completedAt || {},
+    currentProject,
+    projectSetups: setups,
+    sprintCount: current?.sprintCount ?? DEFAULT_SPRINTS,
+    sprintDays: current?.sprintDays ?? DEFAULT_DAYS,
+    projectConfigured: Boolean(current),
   };
 }
 
@@ -53,6 +74,8 @@ export async function upsertUser(input: { id: string; email: string; name?: stri
       xp: 0,
       scores: {},
       completedAt: {},
+      currentProject: 1,
+      projectSetups: [],
     });
   } else {
     user.name = input.name || user.name;
@@ -85,6 +108,8 @@ export async function createUserWithPassword(input: { name: string; email: strin
     xp: 0,
     scores: {},
     completedAt: {},
+    currentProject: 1,
+    projectSetups: [],
   });
   return toProfile(await repo.save(user));
 }
@@ -102,6 +127,20 @@ export async function updateVoiceRate(email: string, voiceRate: string) {
   const user = await repo.findOne({ where: { email } });
   if (!user) return null;
   user.voiceRate = voiceRate;
+  return toProfile(await repo.save(user));
+}
+
+export async function updateProjectSetup(email: string, sprintCount: number, sprintDays: number, project?: number) {
+  const repo = await users();
+  const user = await repo.findOne({ where: { email } });
+  if (!user) return null;
+  const currentProject = project || user.currentProject || 1;
+  user.currentProject = currentProject;
+  user.projectSetups = upsertProjectSetup(user.projectSetups, {
+    project: currentProject,
+    sprintCount,
+    sprintDays,
+  });
   return toProfile(await repo.save(user));
 }
 

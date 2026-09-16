@@ -7,21 +7,26 @@ import { useRouter } from "next/navigation";
 import { VoiceControls } from "./VoiceControls";
 import { UnitsGrid } from "./UnitsGrid";
 import { ThemeToggle } from "./ThemeToggle";
+import { BrandMark } from "./BrandMark";
 import { canListen, speakEnglish } from "@/lib/speech";
-import { homeContent, unitProgress, type DailyHome } from "@/lib/content";
+import { homeContent, phaseLabel, sprintContextFrom, unitProgress, type SprintHome } from "@/lib/content";
 import { ROLES, type RoleId } from "@/lib/roles";
 import type { Profile } from "@/lib/db";
 
 export function HomeClient({ profile }: { profile: Profile }) {
   const router = useRouter();
   const [showListenBanner, setShowListenBanner] = useState(false);
-  const scores = profile.scores || {};
-  const { daily, workActive, fundamentalsActive, review } = homeContent(
-    profile.roles as RoleId[],
-    scores,
-    profile.completedAt || {}
-  );
-  const totals = [...(daily.status === "active" ? [daily.unit] : []), ...workActive, ...fundamentalsActive, ...review].reduce(
+  const ctx = sprintContextFrom({
+    roles: profile.roles as RoleId[],
+    scores: profile.scores,
+    completedAt: profile.completedAt,
+    sprintCount: profile.sprintCount,
+    sprintDays: profile.sprintDays,
+    currentProject: profile.currentProject,
+  });
+  const scores = ctx.scores;
+  const { sprintHome, workActive, fundamentalsActive, review, sprintTrack } = homeContent(ctx);
+  const totals = [...sprintTrack, ...fundamentalsActive, ...review.filter((unit) => unit.track === "fundamentals")].reduce(
     (acc, unit) => {
       const progress = unitProgress(unit, scores);
       acc.done += progress.done;
@@ -34,6 +39,7 @@ export function HomeClient({ profile }: { profile: Profile }) {
   const roleLabels = ROLES.filter((role) => profile.roles.includes(role.id))
     .map((role) => role.title)
     .join(" · ");
+  const phase = phaseLabel(sprintHome);
 
   useEffect(() => {
     setShowListenBanner(!canListen());
@@ -53,7 +59,13 @@ export function HomeClient({ profile }: { profile: Profile }) {
     <>
       <header className="top">
         <div className="user-row">
-          <p className="eyebrow">Inglês do seu dia no time</p>
+          <div className="app-brand">
+            <BrandMark size={28} />
+            <p className="eyebrow">
+              Projeto {profile.currentProject} · Sprint {sprintHome.sprint} de {sprintHome.sprintCount}
+              {phase ? ` · ${phase}` : ""}
+            </p>
+          </div>
           <div className="header-actions">
             <ThemeToggle />
             <Link className="ghost-link" href="/revisar">
@@ -95,10 +107,14 @@ export function HomeClient({ profile }: { profile: Profile }) {
         <p className="banner">Para a fala, use Chrome ou Edge e permita o microfone.</p>
       ) : null}
 
-      <DailyBlock daily={daily} scores={scores} />
+      <SprintBlock home={sprintHome} scores={scores} />
 
-      <h2 className="section-title">Meu dia</h2>
-      <UnitsGrid units={workActive} scores={scores} empty="Nenhuma outra cena para esses papéis ainda." />
+      {workActive.length ? (
+        <>
+          <h2 className="section-title">Meu dia</h2>
+          <UnitsGrid units={workActive} scores={scores} />
+        </>
+      ) : null}
 
       <h2 className="section-title">Fundamentos</h2>
       <UnitsGrid units={fundamentalsActive} scores={scores} empty="Nenhum fundamento pendente." />
@@ -106,53 +122,76 @@ export function HomeClient({ profile }: { profile: Profile }) {
   );
 }
 
-function DailyBlock({ daily, scores }: { daily: DailyHome; scores: Record<string, number> }) {
-  if (daily.status === "none") return null;
+function SprintBlock({ home, scores }: { home: SprintHome; scores: Record<string, number> }) {
+  if (home.status === "none") return null;
 
-  if (daily.status === "waiting") {
+  if (home.status === "waiting-daily") {
     return (
       <>
         <h2 className="section-title">
-          Jornada daily · {daily.step - 1} de {daily.total}
+          Daily · {home.day - 1} de {home.sprintDays}
         </h2>
         <article className="unit waiting">
           <div className="unit-top">
-            <h3>{daily.next.title}</h3>
+            <h3>{home.next.title}</h3>
             <span>Amanhã</span>
           </div>
           <p>
-            Você concluiu a daily de hoje. <strong>{daily.next.title}</strong> será liberada no próximo dia, com frases
-            novas.
+            Você concluiu a daily de hoje. <strong>{home.next.title}</strong> será liberada no próximo dia.
           </p>
         </article>
       </>
     );
   }
 
-  if (daily.status === "finished") {
+  if (home.status === "waiting-sprint") {
     return (
       <>
-        <h2 className="section-title">Jornada daily · {daily.total} de {daily.total}</h2>
+        <h2 className="section-title">
+          Sprint {home.sprint} de {home.sprintCount}
+        </h2>
+        <article className="unit waiting">
+          <div className="unit-top">
+            <h3>Sprint {home.nextSprint} começa amanhã</h3>
+            <span>Amanhã</span>
+          </div>
+          <p>
+            Você fechou a Sprint {home.sprint}. O planning da Sprint {home.nextSprint} abre no próximo dia.
+          </p>
+        </article>
+      </>
+    );
+  }
+
+  if (home.status === "project-done") {
+    return (
+      <>
+        <h2 className="section-title">Projeto concluído</h2>
         <article className="unit complete">
           <div className="unit-top">
-            <h3>Jornada concluída</h3>
+            <h3>Você subiu de nível</h3>
             <span>Feito</span>
           </div>
           <p>
-            Você passou pelas {daily.total} dailies. Pode refazer qualquer uma em{" "}
-            <Link href="/revisar">Revisar</Link>.
+            As {home.sprintCount} sprints deste projeto estão concluídas. O Projeto 2 chega em breve. Enquanto isso,
+            os fundamentos continuam aqui e as cenas feitas estão em <Link href="/revisar">Revisar</Link>.
           </p>
         </article>
       </>
     );
   }
 
+  const titles: Record<"planning" | "daily" | "review" | "retro", string> = {
+    planning: "Sprint planning",
+    daily: `Daily · ${home.status === "daily" ? home.day : 1} de ${home.sprintDays}`,
+    review: "Sprint review",
+    retro: "Retrospectiva",
+  };
+
   return (
     <>
-      <h2 className="section-title">
-        Jornada daily · {daily.step} de {daily.total}
-      </h2>
-      <UnitsGrid units={[daily.unit]} scores={scores} />
+      <h2 className="section-title">{titles[home.status]}</h2>
+      <UnitsGrid units={[home.unit]} scores={scores} />
     </>
   );
 }

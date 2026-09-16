@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
+import { BrandMark } from "./BrandMark";
 
 export function MarketingHeader({ loggedIn }: { loggedIn: boolean }) {
   const pathname = usePathname();
@@ -16,6 +17,7 @@ export function MarketingHeader({ loggedIn }: { loggedIn: boolean }) {
     <header className="site-header">
       <div className="site-header-inner">
         <Link className="site-logo" href="/">
+          <BrandMark size={32} />
           Inglês no Trabalho
         </Link>
         <nav className="site-nav" aria-label="Principal">

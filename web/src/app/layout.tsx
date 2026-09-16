@@ -19,6 +19,18 @@ export const metadata: Metadata = {
     template: "%s · Inglês no Trabalho",
   },
   description: "Estude inglês do seu dia no time: Scrum, 1:1 e cliente.",
+  applicationName: "Inglês no Trabalho",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    apple: "/icon.png",
+  },
+  appleWebApp: {
+    title: "Inglês no Trabalho",
+    capable: true,
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

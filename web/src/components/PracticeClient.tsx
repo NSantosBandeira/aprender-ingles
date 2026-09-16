@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bestMatch, diffWords, scoreLabel } from "@/lib/evaluate";
 import { canSpeak, listenOnce, speakEnglish } from "@/lib/speech";
-import { dailyHome, firstIncompleteIndex, isUnitComplete, itemDone, itemKey, unitProgress, type Unit } from "@/lib/content";
+import { celebrateCopy, firstIncompleteIndex, isUnitComplete, itemDone, itemKey, modeProgress, sprintContextFrom, sprintPhase, unitProgress, type Unit } from "@/lib/content";
 import { VoiceControls } from "./VoiceControls";
 import type { RoleId } from "@/lib/roles";
 
@@ -24,6 +24,9 @@ export function PracticeClient({
   scores: initialScores,
   roles,
   completedAt: initialCompletedAt,
+  sprintCount,
+  sprintDays,
+  currentProject,
 }: {
   unit: Unit;
   mode: "speak" | "write";
@@ -31,6 +34,9 @@ export function PracticeClient({
   scores: Record<string, number>;
   roles: RoleId[];
   completedAt: Record<string, string>;
+  sprintCount: number;
+  sprintDays: number;
+  currentProject: number;
 }) {
   const list = mode === "speak" ? unit.speak : unit.write;
   const otherMode = mode === "speak" ? "write" : "speak";
@@ -52,8 +58,19 @@ export function PracticeClient({
   const advanceTimer = useRef<number | undefined>(undefined);
   const item = list[index];
   const scene = unitProgress(unit, scores);
+  const speakProgress = modeProgress(unit, "speak", scores);
+  const writeProgress = modeProgress(unit, "write", scores);
   const otherHref = `/practice/${unit.id}/${otherMode}`;
-  const dailyState = dailyHome(roles, scores, completedAt);
+  const sprintHome = sprintPhase(
+    sprintContextFrom({
+      roles,
+      scores,
+      completedAt,
+      sprintCount,
+      sprintDays,
+      currentProject,
+    })
+  );
 
   useEffect(() => {
     setSpeechOk(canSpeak());
@@ -94,7 +111,8 @@ export function PracticeClient({
       setModeFinished(true);
       return;
     }
-    if (starsCount < 1) return;
+    window.clearTimeout(advanceTimer.current);
+    if (starsCount < 2) return;
     const nextIncomplete = firstIncompleteIndex(unit, mode, nextScores);
     if (nextIncomplete < 0) {
       setModeFinished(true);
@@ -149,7 +167,7 @@ export function PracticeClient({
       const englishScore = bestMatch(heard, [target]).score;
       const label = scoreLabel(englishScore);
       setResult({ kind: "speak", heard, expected: target, label });
-      setMessage(label.stars ? "Indo para a próxima frase..." : "Tente de novo nesta frase.");
+      setMessage(label.stars >= 2 ? "Indo para a próxima frase..." : "Tente de novo nesta frase.");
       await persist(label.stars);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não consegui ouvir.");
@@ -174,7 +192,7 @@ export function PracticeClient({
       diff: diffWords(draft, item.answers[0]),
       tip: item.tip,
     });
-    setMessage(label.stars ? "Indo para a próxima frase..." : "Tente de novo nesta frase.");
+    setMessage(label.stars >= 2 ? "Indo para a próxima frase..." : "Tente de novo nesta frase.");
     await persist(label.stars);
   }
 
@@ -185,13 +203,35 @@ export function PracticeClient({
           ← Meu dia
         </Link>
         <div>
-          <p className="eyebrow">
-            {unit.title} · {mode === "speak" ? "Fala" : "Escrita"} · cena {scene.done}/{scene.total}
-          </p>
+          <p className="eyebrow">{unit.title}</p>
           <h2>
-            {mode === "speak" ? "Fala" : "Escrita"} {index + 1} de {list.length}
+            {modeFinished
+              ? `${mode === "speak" ? "Fala" : "Escrita"} concluída`
+              : `${mode === "speak" ? "Fala" : "Escrita"} ${index + 1} de ${list.length}`}
           </h2>
         </div>
+      </div>
+      <div className="mode-status" role="status">
+        <Link
+          href={`/practice/${unit.id}/speak`}
+          className={`mode-chip ${mode === "speak" ? "current" : ""} ${speakProgress.complete ? "done" : ""}`}
+        >
+          <strong>Fala</strong>
+          <span>
+            {speakProgress.done}/{speakProgress.total}
+            {speakProgress.complete ? " · feita" : " · falta"}
+          </span>
+        </Link>
+        <Link
+          href={`/practice/${unit.id}/write`}
+          className={`mode-chip ${mode === "write" ? "current" : ""} ${writeProgress.complete ? "done" : ""}`}
+        >
+          <strong>Escrita</strong>
+          <span>
+            {writeProgress.done}/{writeProgress.total}
+            {writeProgress.complete ? " · feita" : " · falta"}
+          </span>
+        </Link>
       </div>
       <div className="progress-dots" aria-hidden="true">
         {list.map((_, i) => (
@@ -248,9 +288,25 @@ export function PracticeClient({
       {message ? <p className="banner">{message}</p> : null}
       {modeFinished && !celebrate ? (
         <p className="banner">
-          Você terminou a {mode === "speak" ? "fala" : "escrita"} desta cena.{" "}
-          <Link href={otherHref}>Ir para {mode === "speak" ? "escrever" : "falar"}</Link> e completar as {scene.total}{" "}
-          atividades.
+          {mode === "speak" ? (
+            writeProgress.complete ? (
+              <>Você já terminou a fala e a escrita desta cena.</>
+            ) : (
+              <>
+                Você já terminou a <strong>fala</strong> ({speakProgress.done} de {speakProgress.total}). Ainda falta a{" "}
+                <strong>escrita</strong> ({writeProgress.done} de {writeProgress.total}).{" "}
+                <Link href={otherHref}>Ir para escrever</Link>
+              </>
+            )
+          ) : speakProgress.complete ? (
+            <>Você já terminou a fala e a escrita desta cena.</>
+          ) : (
+            <>
+              Você já terminou a <strong>escrita</strong> ({writeProgress.done} de {writeProgress.total}). Ainda falta a{" "}
+              <strong>fala</strong> ({speakProgress.done} de {speakProgress.total}).{" "}
+              <Link href={otherHref}>Ir para falar</Link>
+            </>
+          )}
         </p>
       ) : null}
       {result ? (
@@ -305,13 +361,7 @@ export function PracticeClient({
           <h2 id="celebrate-title">Parabéns!</h2>
           <p>
             Você completou as {scene.total} atividades de <strong>{unit.title}</strong>. Ela foi para{" "}
-            <strong>Revisar</strong>.
-            {unit.scene === "daily" && dailyState.status === "waiting" ? (
-              <>
-                {" "}
-                A <strong>{dailyState.next.title}</strong> será liberada amanhã no Meu dia.
-              </>
-            ) : null}
+            <strong>Revisar</strong>. {celebrateCopy(unit, sprintHome)}
           </p>
           <div className="actions">
             <Link href="/revisar">Ver em Revisar</Link>

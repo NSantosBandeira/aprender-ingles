@@ -2,6 +2,7 @@ import type { RoleId } from "./roles";
 
 export type SpeakItem = { en: string; pt: string; when?: string };
 export type WriteItem = { prompt: string; hint: string; answers: string[]; tip: string };
+export type SprintPhase = "planning" | "daily" | "review" | "retro" | "mid";
 
 export type Unit = {
   id: string;
@@ -10,6 +11,10 @@ export type Unit = {
   track: "work" | "fundamentals";
   scene: string;
   journey?: number;
+  project?: number;
+  sprint?: number;
+  phase?: SprintPhase;
+  day?: number;
   roles: RoleId[];
   speak: SpeakItem[];
   write: WriteItem[];
