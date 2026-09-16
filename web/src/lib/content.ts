@@ -52,7 +52,7 @@ export function itemKey(unitId: string, mode: string, index: number) {
 }
 
 export function itemDone(unitId: string, mode: string, index: number, scores: Record<string, number>) {
-  return (scores[itemKey(unitId, mode, index)] || 0) > 0;
+  return (scores[itemKey(unitId, mode, index)] || 0) >= 2;
 }
 
 export function firstIncompleteIndex(unit: Unit, mode: "speak" | "write", scores: Record<string, number>) {
@@ -79,12 +79,12 @@ export function unitProgress(unit: Unit, scores: Record<string, number>) {
   for (let i = 0; i < unit.speak.length; i += 1) {
     const value = scores[itemKey(unit.id, "speak", i)] || 0;
     stars += value;
-    if (value) done += 1;
+    if (value >= 2) done += 1;
   }
   for (let i = 0; i < unit.write.length; i += 1) {
     const value = scores[itemKey(unit.id, "write", i)] || 0;
     stars += value;
-    if (value) done += 1;
+    if (value >= 2) done += 1;
   }
   return { done, total, stars };
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bestMatch, diffWords, scoreLabel } from "@/lib/evaluate";
+import { AUTO_ADVANCE_STARS, bestMatch, diffWords, scoreLabel } from "@/lib/evaluate";
 import { canSpeak, listenOnce, speakEnglish } from "@/lib/speech";
 import { celebrateCopy, firstIncompleteIndex, isUnitComplete, itemDone, itemKey, modeProgress, sprintContextFrom, sprintPhase, unitProgress, type Unit } from "@/lib/content";
 import { VoiceControls } from "./VoiceControls";
@@ -112,14 +112,14 @@ export function PracticeClient({
       return;
     }
     window.clearTimeout(advanceTimer.current);
-    if (starsCount < 2) return;
+    if (starsCount < AUTO_ADVANCE_STARS) return;
     const nextIncomplete = firstIncompleteIndex(unit, mode, nextScores);
     if (nextIncomplete < 0) {
       setModeFinished(true);
       return;
     }
     window.clearTimeout(advanceTimer.current);
-    advanceTimer.current = window.setTimeout(() => resetCard(nextIncomplete), 1400);
+    advanceTimer.current = window.setTimeout(() => resetCard(nextIncomplete), 4000);
   }
 
   async function persist(starsCount: number) {
@@ -167,7 +167,7 @@ export function PracticeClient({
       const englishScore = bestMatch(heard, [target]).score;
       const label = scoreLabel(englishScore);
       setResult({ kind: "speak", heard, expected: target, label });
-      setMessage(label.stars >= 2 ? "Indo para a próxima frase..." : "Tente de novo nesta frase.");
+      setMessage(label.stars >= AUTO_ADVANCE_STARS ? "Indo para a próxima frase..." : "Tente de novo nesta frase.");
       await persist(label.stars);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não consegui ouvir.");
@@ -192,7 +192,7 @@ export function PracticeClient({
       diff: diffWords(draft, item.answers[0]),
       tip: item.tip,
     });
-    setMessage(label.stars >= 2 ? "Indo para a próxima frase..." : "Tente de novo nesta frase.");
+    setMessage(label.stars >= AUTO_ADVANCE_STARS ? "Indo para a próxima frase..." : "Tente de novo nesta frase.");
     await persist(label.stars);
   }
 
