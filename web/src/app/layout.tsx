@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Be_Vietnam_Pro, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
@@ -43,7 +44,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           }}
         />
       </head>
-      <body className={`${sans.className} ${serif.variable}`}>{children}</body>
+      <body className={`${sans.className} ${serif.variable}`}>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
