@@ -11,7 +11,7 @@ const AUTH_ERRORS: Record<string, string> = {
   AccessDenied:
     "O Google autenticou, mas o app não conseguiu gravar seu usuário no banco. Na Vercel, DATABASE_URL precisa ser o Postgres da nuvem (não localhost) e a tabela users é criada no primeiro login.",
   Configuration: "Falta configurar AUTH_SECRET, Google ou DATABASE_URL neste deploy.",
-  OAuthCallback: "O retorno do Google falhou. Confira o redirect https://seu-app.vercel.app/api/auth/callback/google.",
+  OAuthCallback: "O retorno do Google falhou. No Google Cloud, o redirect tem de ser exatamente https://www.inglesnotrabalho.com.br/api/auth/callback/google.",
   CredentialsSignin: "E-mail ou senha incorretos.",
 };
 
