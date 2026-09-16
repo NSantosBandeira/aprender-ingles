@@ -87,6 +87,7 @@ body {
 
 .top h1,
 .card .phrase,
+.card .source-text,
 .practice-top h2 {
   font-family: var(--font-serif), "Source Serif 4", Georgia, serif;
 }
@@ -375,6 +376,31 @@ button:disabled {
   margin-top: 0;
 }
 
+.source {
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--banner-line);
+  background: var(--banner);
+}
+
+.source-kicker {
+  margin: 0 0 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--terra);
+}
+
+.source-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(1.45rem, 3.2vw, 2.05rem);
+  line-height: 1.25;
+  font-weight: 600;
+}
+
 textarea {
   width: 100%;
   font: inherit;
@@ -486,8 +512,23 @@ textarea {
   background: var(--role-on);
 }
 
-.lead a {
+.lead a,
+.lead .text-link {
   color: var(--terra-dark);
+}
+
+.lead .text-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.lead .text-link:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .pager {

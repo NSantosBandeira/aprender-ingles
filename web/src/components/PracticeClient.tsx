@@ -259,14 +259,17 @@ export function PracticeClient({
           </>
         ) : "prompt" in item ? (
           <>
-            <p className="when">{item.prompt}</p>
+            <div className="source">
+              <p className="source-kicker">Traduza para o inglês</p>
+              <p className="source-text">{item.prompt}</p>
+            </div>
             <label className="sr" htmlFor="answer">
               Sua frase em inglês
             </label>
             <textarea
               id="answer"
               rows={3}
-              placeholder="Escreva em inglês..."
+              placeholder="Escreva a frase em inglês..."
               value={result?.heard || draft}
               onChange={(event) => {
                 setDraft(event.target.value);

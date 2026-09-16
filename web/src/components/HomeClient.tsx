@@ -41,6 +41,8 @@ export function HomeClient({ profile }: { profile: Profile }) {
     .join(" · ");
   const phase = phaseLabel(sprintHome);
 
+  const [resetting, setResetting] = useState(false);
+
   useEffect(() => {
     setShowListenBanner(!canListen());
   }, []);
@@ -82,6 +84,30 @@ export function HomeClient({ profile }: { profile: Profile }) {
         <p className="lead">
           Papel agora: <strong>{roleLabels || "nenhum"}</strong>.{" "}
           <Link href="/onboarding">Trocar papéis</Link>
+          {" · "}
+          <button
+            className="text-link"
+            type="button"
+            disabled={resetting}
+            onClick={async () => {
+              const ok = window.confirm(
+                "Isso apaga o progresso deste projeto (planning, dailies, review e retro) e libera de novo a escolha de sprints e dias. Os fundamentos ficam. Continuar?"
+              );
+              if (!ok) return;
+              setResetting(true);
+              const response = await fetch("/api/profile", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ resetProject: true }),
+              });
+              setResetting(false);
+              if (!response.ok) return;
+              router.push("/onboarding");
+              router.refresh();
+            }}
+          >
+            {resetting ? "Zerando..." : "Zerar este projeto"}
+          </button>
         </p>
         <div className="stats">
           <div>

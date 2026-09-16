@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getUserByEmail, updateProjectSetup, updateRoles, updateVoiceRate } from "@/lib/db";
+import { getUserByEmail, resetCurrentProject, updateProjectSetup, updateRoles, updateVoiceRate } from "@/lib/db";
 import { projectStarted, sprintContextFrom } from "@/lib/content";
 import { clampDays, clampSprints } from "@/lib/projects";
 import { ALL_ROLES, type RoleId } from "@/lib/roles";
@@ -23,6 +23,11 @@ export async function PATCH(request: Request) {
 
   let profile = await getUserByEmail(session.user.email);
   if (!profile) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+  if (body.resetProject === true) {
+    profile = await resetCurrentProject(session.user.email);
+    return NextResponse.json(profile);
+  }
 
   if (Array.isArray(body.roles)) {
     const roles = body.roles.filter((role: string) => ALL_ROLES.includes(role as RoleId));

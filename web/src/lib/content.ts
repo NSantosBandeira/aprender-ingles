@@ -43,6 +43,10 @@ export function unitById(id: string) {
   return allUnits().find((unit) => unit.id === id);
 }
 
+export function unitIdsForProject(project: number) {
+  return allUnits().filter((unit) => unit.project === project).map((unit) => unit.id);
+}
+
 export function itemKey(unitId: string, mode: string, index: number) {
   return `${unitId}:${mode}:${index}`;
 }

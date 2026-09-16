@@ -1,11 +1,12 @@
 import "reflect-metadata";
 import { User, type UserRow } from "./entities/User";
 import { getDataSource } from "./data-source";
-import { isUnitComplete, todayStamp, unitById } from "./content";
+import { isUnitComplete, todayStamp, unitById, unitIdsForProject } from "./content";
 import {
   DEFAULT_DAYS,
   DEFAULT_SPRINTS,
   normalizeProjectSetups,
+  removeProjectSetup,
   setupForProject,
   upsertProjectSetup,
   type ProjectSetup,
@@ -141,6 +142,32 @@ export async function updateProjectSetup(email: string, sprintCount: number, spr
     sprintCount,
     sprintDays,
   });
+  return toProfile(await repo.save(user));
+}
+
+export async function resetCurrentProject(email: string) {
+  const repo = await users();
+  const user = await repo.findOne({ where: { email } });
+  if (!user) return null;
+  const project = user.currentProject || 1;
+  const ids = new Set(unitIdsForProject(project));
+  const scores = { ...(user.scores || {}) };
+  for (const key of Object.keys(scores)) {
+    const unitId = key.replace(/:(speak|write):\d+$/, "");
+    if (ids.has(unitId)) delete scores[key];
+  }
+  const completedAt = { ...(user.completedAt || {}) };
+  for (const unitId of Object.keys(completedAt)) {
+    if (ids.has(unitId)) delete completedAt[unitId];
+  }
+  user.scores = scores;
+  user.completedAt = completedAt;
+  user.xp = Object.values(scores).reduce((sum, stars) => sum + (Number(stars) || 0) * 10, 0);
+  if (user.lastUnit && ids.has(user.lastUnit)) {
+    user.lastUnit = null;
+    user.lastMode = null;
+  }
+  user.projectSetups = removeProjectSetup(user.projectSetups, project);
   return toProfile(await repo.save(user));
 }
 

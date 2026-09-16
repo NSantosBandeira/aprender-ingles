@@ -63,3 +63,7 @@ export function upsertProjectSetup(setups: ProjectSetup[], next: ProjectSetup): 
   const without = cleaned.filter((item) => item.project !== entry.project);
   return [...without, entry].sort((a, b) => a.project - b.project);
 }
+
+export function removeProjectSetup(setups: ProjectSetup[], project: number): ProjectSetup[] {
+  return normalizeProjectSetups(setups).filter((item) => item.project !== project);
+}
